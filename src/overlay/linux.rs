@@ -1,5 +1,6 @@
 use raw_window_handle::RawWindowHandle;
 use x11rb::connection::Connection;
+use x11rb::protocol::shape::{ConnectionExt as ShapeExt, SK, SO};
 use x11rb::protocol::xproto::ConnectionExt as XprotoExt;
 use x11rb::wrapper::ConnectionExt as WrapperExt;
 
@@ -56,6 +57,38 @@ fn setup_x11_overlay(window_id: u32) -> Result<(), Box<dyn std::error::Error>> {
         &[net_wm_state_above, net_wm_state_sticky, net_wm_state_skip_taskbar, net_wm_state_skip_pager],
     )?;
 
+    // Make the window click-through by setting an empty input shape
+    // This causes all mouse events to pass through to windows below
+    conn.shape_rectangles(
+        SO::SET,
+        SK::INPUT,
+        x11rb::protocol::xproto::ClipOrdering::UNSORTED,
+        window_id,
+        0,
+        0,
+        &[],
+    )?;
+
     conn.flush()?;
     Ok(())
+}
+
+pub fn set_click_through(raw: &RawWindowHandle) {
+    let window_id = match raw {
+        RawWindowHandle::Xlib(h) => h.window as u32,
+        RawWindowHandle::Xcb(h) => h.window.get(),
+        _ => return,
+    };
+    if let Ok((conn, _)) = x11rb::connect(None) {
+        let _ = conn.shape_rectangles(
+            SO::SET,
+            SK::INPUT,
+            x11rb::protocol::xproto::ClipOrdering::UNSORTED,
+            window_id,
+            0,
+            0,
+            &[],
+        );
+        let _ = conn.flush();
+    }
 }

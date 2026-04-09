@@ -2,12 +2,15 @@ use egui::{Color32, RichText};
 
 use crate::gpu::GpuMetrics;
 
-pub fn draw_panel(egui_ctx: &egui::Context, metrics: &[GpuMetrics]) {
+pub fn draw_panel(egui_ctx: &egui::Context, metrics: &[GpuMetrics]) -> f32 {
+    let mut height = 0.0f32;
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE)
         .show(egui_ctx, |ui| {
             draw_gpu_panel(ui, metrics);
+            height = ui.min_rect().height();
         });
+    height
 }
 
 fn draw_gpu_panel(ui: &mut egui::Ui, metrics: &[GpuMetrics]) {
@@ -21,20 +24,17 @@ fn draw_gpu_panel(ui: &mut egui::Ui, metrics: &[GpuMetrics]) {
         ui.vertical(|ui| {
             for (i, gpu) in metrics.iter().enumerate() {
                 if i > 0 {
-                    ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        ui.add_space(4.0);
-                        let sep_rect = ui.available_rect_before_wrap();
-                        let painter = ui.painter();
-                        painter.line_segment(
-                            [
-                                egui::pos2(sep_rect.left(), sep_rect.top() + 2.0),
-                                egui::pos2(sep_rect.right(), sep_rect.top() + 2.0),
-                            ],
-                            egui::Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 40)),
-                        );
-                    });
-                    ui.add_space(4.0);
+                    ui.add_space(2.0);
+                    let sep_rect = ui.available_rect_before_wrap();
+                    let painter = ui.painter();
+                    painter.line_segment(
+                        [
+                            egui::pos2(sep_rect.left(), sep_rect.top()),
+                            egui::pos2(sep_rect.right(), sep_rect.top()),
+                        ],
+                        egui::Stroke::new(0.5, Color32::from_rgba_unmultiplied(255, 255, 255, 40)),
+                    );
+                    ui.add_space(2.0);
                 }
 
                 panel_frame.show(ui, |ui| {

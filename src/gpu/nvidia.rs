@@ -21,7 +21,7 @@ impl GpuMonitor for NvidiaMonitor {
     fn metrics(&mut self) -> Vec<GpuMetrics> {
         let output = match std::process::Command::new(&self.smi_path)
             .args([
-                "--query-gpu=name,temperature.gpu,temperature.memory,utilization.gpu,utilization.memory,memory.used,memory.total,clocks.current.sm,clocks.current.mem",
+                "--query-gpu=name,temperature.gpu,temperature.memory,utilization.gpu,utilization.memory,memory.used,memory.total,clocks.current.sm,clocks.current.memory",
                 "--format=csv,noheader,nounits",
             ])
             .output()

@@ -22,7 +22,7 @@ struct App {
     egui_glow: Option<egui_glow::EguiGlow>,
     metrics: Arc<Mutex<Vec<gpu::GpuMetrics>>>,
     last_poll: Instant,
-    sized: bool,
+    cached_height: Option<f32>,
 }
 
 struct GlutinWindowContext {
@@ -215,37 +215,6 @@ impl ApplicationHandler for App {
         if matches!(event, WindowEvent::RedrawRequested) {
             let metrics = self.metrics.lock().unwrap().clone();
 
-            // Resize window to fit content on first data
-            if !self.sized && !metrics.is_empty() {
-                self.sized = true;
-                let scale = gl_window.window().scale_factor();
-                let width = 280.0;
-                // Estimate: ~13px per metric line, ~5 lines per GPU, padding, separators
-                let gpu_count = metrics.len() as f32;
-                let lines_per_gpu: Vec<f32> = metrics.iter().map(|m| {
-                    let mut lines = 1.0; // name
-                    if m.core_temp.is_some() || m.memory_temp.is_some() { lines += 1.0; }
-                    if m.core_utilization.is_some() || m.memory_utilization.is_some() { lines += 1.0; }
-                    if m.vram_used_mb.is_some() || m.vram_total_mb.is_some() { lines += 1.0; }
-                    if m.core_clock_mhz.is_some() || m.memory_clock_mhz.is_some() { lines += 1.0; }
-                    lines
-                }).collect();
-                let total_lines: f32 = lines_per_gpu.iter().sum();
-                let height = 16.0 + total_lines * 15.0 + (gpu_count - 1.0).max(0.0) * 12.0;
-                let size = winit::dpi::LogicalSize::new(width, height);
-                let _ = gl_window.window().request_inner_size(size);
-
-                // Reposition top-right
-                if let Some(monitor) = gl_window.window().primary_monitor() {
-                    let screen = monitor.size();
-                    let phys: winit::dpi::PhysicalSize<f64> = size.to_physical(scale);
-                    let x = screen.width as i32 - phys.width as i32;
-                    let _ = gl_window.window().set_outer_position(
-                        winit::dpi::PhysicalPosition::new(x, 0)
-                    );
-                }
-            }
-
             // First: clear to transparent
             unsafe {
                 use glow::HasContext as _;
@@ -254,10 +223,43 @@ impl ApplicationHandler for App {
                 gl.clear(glow::COLOR_BUFFER_BIT);
             }
 
-            // Then: run egui layout + paint
+            // Run egui layout and measure content height
+            let mut content_height = 0.0f32;
             egui_glow.run(gl_window.window(), |egui_ctx| {
-                ui::draw_panel(egui_ctx, &metrics);
+                content_height = ui::draw_panel(egui_ctx, &metrics);
             });
+
+            // Resize window to fit actual content (once, then cache)
+            if !metrics.is_empty() && content_height > 0.0 && self.cached_height.is_none() {
+                self.cached_height = Some(content_height.ceil() + 4.0);
+            }
+            if let Some(height) = self.cached_height {
+                let scale = gl_window.window().scale_factor();
+                let width = 280.0;
+                let cur_size = gl_window.window().inner_size();
+                let logical_cur = cur_size.to_logical::<f32>(scale);
+                if (logical_cur.width - width).abs() > 1.0 || (logical_cur.height - height).abs() > 1.0 {
+                    let size = winit::dpi::LogicalSize::new(width, height);
+                    let _ = gl_window.window().request_inner_size(size);
+
+                    if let Some(monitor) = gl_window.window().primary_monitor() {
+                        let screen = monitor.size();
+                        let phys: winit::dpi::PhysicalSize<f64> = size.to_physical(scale);
+                        let x = screen.width as i32 - phys.width as i32;
+                        let _ = gl_window.window().set_outer_position(
+                            winit::dpi::PhysicalPosition::new(x, 0)
+                        );
+                    }
+
+                    // Re-apply click-through after resize
+                    #[cfg(target_os = "linux")]
+                    {
+                        let handle = gl_window.window().window_handle().expect("handle");
+                        overlay::linux::set_click_through(&handle.as_raw());
+                    }
+                }
+            }
+
             egui_glow.paint(gl_window.window());
 
             gl_window.swap_buffers();
@@ -319,7 +321,7 @@ fn main() {
         egui_glow: None,
         metrics,
         last_poll: Instant::now(),
-        sized: false,
+        cached_height: None,
     };
 
     event_loop.run_app(&mut app).unwrap();
