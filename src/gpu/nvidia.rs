@@ -1,8 +1,10 @@
 use super::{GpuMetrics, GpuMonitor};
 use std::path::Path;
+use std::collections::HashMap;
 
 pub struct NvidiaMonitor {
     smi_path: String,
+    vendor_cache: HashMap<String, String>,
 }
 
 impl NvidiaMonitor {
@@ -13,7 +15,40 @@ impl NvidiaMonitor {
     pub fn new() -> Self {
         Self {
             smi_path: which_nvidia_smi().unwrap_or_else(|| "nvidia-smi".to_string()),
+            vendor_cache: HashMap::new(),
         }
+    }
+
+    fn resolve_vendor(&mut self, bus_id: &str) -> Option<String> {
+        if let Some(v) = self.vendor_cache.get(bus_id) {
+            return Some(v.clone());
+        }
+        // nvidia-smi gives "00000000:0A:00.0", sysfs uses "0000:0a:00.0"
+        let lower = bus_id.to_lowercase();
+        let parts: Vec<&str> = lower.split(':').collect();
+        let sysfs_name = if parts.len() >= 3 {
+            // Truncate domain to 4 hex digits
+            let domain = parts[0].trim_start_matches('0');
+            format!("{:0>4}:{}:{}", domain, parts[1], parts[2])
+        } else {
+            lower.clone()
+        };
+        let path = format!("/sys/bus/pci/devices/{}/subsystem_vendor", sysfs_name);
+        let raw = std::fs::read_to_string(&path).ok()?;
+        let hex = raw.trim().trim_start_matches("0x").trim_start_matches('0');
+        let vendor = match hex {
+            "1043" => "ASUS",
+            "1462" => "MSI",
+            "10de" => "NVIDIA",
+            "19da" => "ZOTAC",
+            "3842" => "EVGA",
+            "7394" => "PNY",
+            "1b4c" => "GIGABYTE",
+            "1569" => "Colorful",
+            _ => hex,
+        }.to_string();
+        self.vendor_cache.insert(bus_id.to_string(), vendor.clone());
+        Some(vendor)
     }
 }
 
@@ -21,7 +56,7 @@ impl GpuMonitor for NvidiaMonitor {
     fn metrics(&mut self) -> Vec<GpuMetrics> {
         let output = match std::process::Command::new(&self.smi_path)
             .args([
-                "--query-gpu=name,temperature.gpu,temperature.memory,utilization.gpu,utilization.memory,memory.used,memory.total,clocks.current.sm,clocks.current.memory",
+                "--query-gpu=name,gpu_bus_id,temperature.gpu,temperature.memory,utilization.gpu,utilization.memory,memory.used,memory.total,clocks.current.sm,clocks.current.memory",
                 "--format=csv,noheader,nounits",
             ])
             .output()
@@ -35,7 +70,7 @@ impl GpuMonitor for NvidiaMonitor {
 
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
-            if parts.len() < 9 {
+            if parts.len() < 10 {
                 continue;
             }
 
@@ -47,16 +82,19 @@ impl GpuMonitor for NvidiaMonitor {
                 s.parse().ok()
             };
 
+            let vendor = self.resolve_vendor(parts[1]);
+
             results.push(GpuMetrics {
                 name: parts[0].to_string(),
-                core_temp: parse_f(parts[1]),
-                memory_temp: parse_f(parts[2]),
-                core_utilization: parse_f(parts[3]),
-                memory_utilization: parse_f(parts[4]),
-                vram_used_mb: parse_f(parts[5]),
-                vram_total_mb: parse_f(parts[6]),
-                core_clock_mhz: parse_f(parts[7]),
-                memory_clock_mhz: parse_f(parts[8]),
+                vendor,
+                core_temp: parse_f(parts[2]),
+                memory_temp: parse_f(parts[3]),
+                core_utilization: parse_f(parts[4]),
+                memory_utilization: parse_f(parts[5]),
+                vram_used_mb: parse_f(parts[6]),
+                vram_total_mb: parse_f(parts[7]),
+                core_clock_mhz: parse_f(parts[8]),
+                memory_clock_mhz: parse_f(parts[9]),
             });
         }
 

@@ -70,6 +70,7 @@ impl GpuMonitor for IntelMonitor {
 
         vec![GpuMetrics {
             name,
+            vendor: None,
             core_temp,
             memory_temp: None,
             core_utilization,

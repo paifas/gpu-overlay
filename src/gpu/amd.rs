@@ -77,6 +77,7 @@ impl GpuMonitor for AmdMonitor {
 
         vec![GpuMetrics {
             name,
+            vendor: None,
             core_temp,
             memory_temp,
             core_utilization,

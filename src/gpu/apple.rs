@@ -40,6 +40,7 @@ impl GpuMonitor for AppleMonitor {
 
         vec![GpuMetrics {
             name: self.gpu_name.clone(),
+            vendor: Some("Apple".to_string()),
             core_temp,
             memory_temp: None,
             core_utilization: core_util,

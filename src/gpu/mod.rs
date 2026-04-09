@@ -9,6 +9,7 @@ pub mod intel;
 #[derive(Debug, Clone)]
 pub struct GpuMetrics {
     pub name: String,
+    pub vendor: Option<String>,
     pub core_temp: Option<f32>,
     pub memory_temp: Option<f32>,
     pub core_utilization: Option<f32>,
