@@ -2,16 +2,18 @@
 
 Transparent, always-on-top GPU metrics overlay for macOS and Linux.
 
-Displays real-time GPU temperature, utilization, VRAM, and clock speeds in a compact floating panel — similar to MSI Afterburner's on-screen display.
+Displays real-time GPU temperature, utilization, VRAM, and clock speeds in a compact floating panel.
 
 ## Supported GPUs
 
 | Vendor | Platform | Data Source |
 |---|---|---|
-| Apple Silicon (M-series) | macOS | IORegistry |
 | NVIDIA | macOS + Linux | nvidia-smi |
 | AMD | Linux | sysfs/hwmon |
 | Intel (Arc/integrated) | Linux | sysfs/i915 |
+| Apple Silicon (M-series) | macOS | IORegistry |
+
+Board vendor (MSI, ASUS, EVGA, etc.) is detected from PCI subsystem IDs.
 
 ## Build
 
@@ -25,14 +27,15 @@ cargo build --release
 cargo run --release
 ```
 
-No configuration needed. The overlay appears in the top-right corner.
+No configuration needed. The overlay appears in the top-right corner of the primary monitor.
 
 ## Features
 
-- Transparent background, click-through (mouse events pass through)
-- Visible on all Spaces and in fullscreen apps
+- Transparent, click-through background (mouse events pass through)
+- Visible on all workspaces and in fullscreen apps
 - Auto-detects all available GPUs
-- Multi-GPU support (displays all detected GPUs)
+- Multi-GPU support
+- Board vendor detection (MSI, ASUS, EVGA, ZOTAC, etc.)
 - 1-second refresh rate
 - Zero config
 
