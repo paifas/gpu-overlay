@@ -35,15 +35,6 @@ fn setup_x11_overlay(window_id: u32) -> Result<(), Box<dyn std::error::Error>> {
         &[net_wm_window_type_dock],
     )?;
 
-    // Set state: ABOVE + STICKY (always on top, all desktops)
-    conn.change_property32(
-        x11rb::protocol::xproto::PropMode::REPLACE,
-        window_id,
-        net_wm_state,
-        x11rb::protocol::xproto::AtomEnum::ATOM,
-        &[net_wm_state_above, net_wm_state_sticky],
-    )?;
-
     // Set opacity to fully opaque (0xffffffff = 100%)
     // The window transparency is handled by OpenGL, not by the compositor
     conn.change_property32(
@@ -54,7 +45,7 @@ fn setup_x11_overlay(window_id: u32) -> Result<(), Box<dyn std::error::Error>> {
         &[0xffffffff],
     )?;
 
-    // Skip taskbar and pager
+    // Set state: ABOVE + STICKY + skip taskbar/pager
     let net_wm_state_skip_taskbar = conn.intern_atom(false, b"_NET_WM_STATE_SKIP_TASKBAR")?.reply()?.atom;
     let net_wm_state_skip_pager = conn.intern_atom(false, b"_NET_WM_STATE_SKIP_PAGER")?.reply()?.atom;
     conn.change_property32(

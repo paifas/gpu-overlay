@@ -57,7 +57,7 @@ fn draw_gpu_panel(ui: &mut egui::Ui, metrics: &[GpuMetrics]) {
                         }
                         ui.label(
                             RichText::new(parts.join("  "))
-                                .color(temp_color(gpu.core_temp.unwrap_or(50.0)))
+                                .color(temp_color(gpu.core_temp.or(gpu.memory_temp).unwrap_or(50.0)))
                                 .size(10.0)
                                 .monospace(),
                         );

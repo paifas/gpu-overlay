@@ -12,7 +12,14 @@ struct UtilState {
 
 impl AppleMonitor {
     pub fn is_available() -> bool {
-        cfg!(target_os = "macos")
+        if !cfg!(target_os = "macos") {
+            return false;
+        }
+        std::process::Command::new("ioreg")
+            .args(["-r", "-c", "AGXAccelerator"])
+            .output()
+            .map(|o| !o.stdout.is_empty())
+            .unwrap_or(false)
     }
 
     pub fn new() -> Self {
